@@ -1,0 +1,37 @@
+h1. OrientDB / Spring integration
+
+h2. About the project
+
+_spring-orientdb_ is an attempt to provide a PlatformTransactionManager for OrientDB useable with the Spring Framework, in particular with _@Transactional_ annotation.
+
+h3. Configuration and usage
+
+An example configuration is in:
+_src/main/resources/applicationContext.xml_
+
+Al the magic is in the 
+
+_<tx:annotation-driven />_
+
+configuration.
+
+To make it work:
+* install Maven 3.x+
+* startup OrientDB instance with _demo_ database;
+* launch this test: it.megadix.orientdb.spring.SampleServiceTest
+
+mvn test -Dtest=SampleServiceTest
+
+An IDE such Eclipse or Netbeans is higly recommended, so you can debug things.
+
+h3. Service & DAO
+
+SampleService is annotated as _@Transactional_, so Spring will wrap every method invocation in a OrientDB-powered transaction, and provides an instance of ODatabaseComplex to subclasses of OrientDbDaoSupport.
+
+h2. Disclaimer
+
+*WARNING*: this is my first attempt at the implementation of such a complex beast like a transaction manager, so *USE IT AT YOUR OWN RISK!*
+
+* I'm not an expert in Spring internals;
+* I'm not an expert in OrientDB;
+* I just think that Spring & OrientDB are very cool projects that somehow need to work better together.
