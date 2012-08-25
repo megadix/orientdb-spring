@@ -6,7 +6,8 @@ _spring-orientdb_ is an attempt to provide a PlatformTransactionManager for Orie
 
 h3. Configuration and usage
 
-Sample configuration & usage coming soon in a separate package. Stay tuned!
+For sample configuration and usage see orientdb-spring-samples:
+https://github.com/megadix/orientdb-spring-samples
 
 h3. Service & DAO
 
