@@ -7,13 +7,7 @@ _spring-orientdb_ is an attempt to provide a PlatformTransactionManager for Orie
 h3. Configuration and usage
 
 An example configuration is in:
-_src/main/resources/applicationContext.xml_
-
-Al the magic is in the 
-
-_<tx:annotation-driven />_
-
-configuration.
+_src/test/java/it/megadix/orientdb/spring/samples/SamplesTestConfiguration.java_
 
 To make it work:
 * install Maven 3.x+

@@ -1,20 +1,31 @@
 package it.megadix.orientdb.spring;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.transaction.*;
-import org.springframework.transaction.support.*;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
 
-import com.orientechnologies.orient.core.db.ODatabaseComplex;
+import com.orientechnologies.orient.core.db.*;
+import com.orientechnologies.orient.core.db.object.ODatabaseObject;
+import com.orientechnologies.orient.core.entity.OEntityManager;
+import com.orientechnologies.orient.core.tx.OTransaction;
 
-public class OrientDbTransactionManager extends AbstractPlatformTransactionManager implements InitializingBean,
-        DisposableBean {
+public class OrientDbTransactionManager extends AbstractPlatformTransactionManager implements
+        InitializingBean, DisposableBean {
 
-    private ODatabaseComplex database;
+    private static final long serialVersionUID = -1837116040878560582L;
+
+    private ODatabase database;
     private String username;
     private String password;
+    private List<String> entityClassesPackages = new ArrayList<String>();
+    private boolean createIfNotExists;
 
-    public void setDatabase(ODatabaseComplex database) {
+    public void setDatabase(ODatabase database) {
         this.database = database;
     }
 
@@ -25,55 +36,73 @@ public class OrientDbTransactionManager extends AbstractPlatformTransactionManag
     public void setPassword(String password) {
         this.password = password;
     }
-    
-    public void afterPropertiesSet() throws Exception {
-        this.database.open(username, password);
+
+    public void setCreateIfNotExists(boolean createIfNotExists) {
+        this.createIfNotExists = createIfNotExists;
     }
-    
+
+    public boolean isCreateIfNotExists() {
+        return createIfNotExists;
+    }
+
+    public void afterPropertiesSet() throws Exception {
+        if (!database.exists()) {
+            if (createIfNotExists) {
+                database.create();
+            } else {
+                throw new IllegalStateException("Database does not exist");
+            }
+        } else {
+            database.open(username, password);
+        }
+
+        if (!entityClassesPackages.isEmpty() && ODatabaseObject.class.isAssignableFrom(database.getClass())) {
+            ODatabaseObject objectDb = (ODatabaseObject) database;
+            OEntityManager entMgr = objectDb.getEntityManager();
+            for (String entityPackage : entityClassesPackages) {
+                entMgr.registerEntityClasses(entityPackage);
+            }
+        }
+    }
+
     public void destroy() throws Exception {
         this.database.close();
     }
 
+    public List<String> getEntityClassesPackages() {
+        return entityClassesPackages;
+    }
+
+    public void setEntityClassesPackages(List<String> entityClassesPackages) {
+        this.entityClassesPackages = entityClassesPackages;
+    }
+
     @Override
     protected Object doGetTransaction() throws TransactionException {
-        OrientDbTransactionObject txObject = new OrientDbTransactionObject();
-        OrientDbConnectionHolder conHolder = (OrientDbConnectionHolder) TransactionSynchronizationManager
-                .getResource(database);
-        txObject.setConnectionHolder(conHolder);
-        return txObject;
+        return ODatabaseRecordThreadLocal.INSTANCE.get().getTransaction();
     }
 
     @Override
     protected void doBegin(Object transaction, TransactionDefinition definition) throws TransactionException {
-        OrientDbTransactionObject txObject = (OrientDbTransactionObject) transaction;
-        ODatabaseComplex database = null;
-
-        if (txObject.getConnectionHolder() == null) {
-            // open a new session
-            database = this.database.begin();
-            txObject.setConnectionHolder(new OrientDbConnectionHolder(database));
-        }
-
-        TransactionSynchronizationManager.bindResource(database, txObject.getConnectionHolder());
+        OTransaction tx = (OTransaction) transaction;
+        tx.begin();
     }
 
     @Override
     protected void doCommit(DefaultTransactionStatus status) throws TransactionException {
-        OrientDbTransactionObject txObject = (OrientDbTransactionObject) status.getTransaction();
-        ODatabaseComplex database = txObject.getConnectionHolder().getDatabase();
+        OTransaction tx = (OTransaction) status.getTransaction();
         try {
-            database.commit();
+            tx.commit();
         } catch (Exception ex) {
-            throw new TransactionSystemException("Could not commit OrientDB transaction", ex);
+            throw new TransactionSystemException("Could not rollback OrientDB transaction", ex);
         }
     }
 
     @Override
     protected void doRollback(DefaultTransactionStatus status) throws TransactionException {
-        OrientDbTransactionObject txObject = (OrientDbTransactionObject) status.getTransaction();
-        ODatabaseComplex database = txObject.getConnectionHolder().getDatabase();
+        OTransaction tx = (OTransaction) status.getTransaction();
         try {
-            database.rollback();
+            tx.rollback();
         } catch (Exception ex) {
             throw new TransactionSystemException("Could not rollback OrientDB transaction", ex);
         }
