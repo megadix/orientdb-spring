@@ -6,17 +6,7 @@ _spring-orientdb_ is an attempt to provide a PlatformTransactionManager for Orie
 
 h3. Configuration and usage
 
-An example configuration is in:
-_src/test/java/it/megadix/orientdb/spring/samples/SamplesTestConfiguration.java_
-
-To make it work:
-* install Maven 3.x+
-* startup OrientDB instance with _demo_ database;
-* launch this test: it.megadix.orientdb.spring.SampleServiceTest
-
-mvn test -Dtest=SampleServiceTest
-
-An IDE such Eclipse or Netbeans is higly recommended, so you can debug things.
+Sample configuration & usage coming soon in a separate package. Stay tuned!
 
 h3. Service & DAO
 
