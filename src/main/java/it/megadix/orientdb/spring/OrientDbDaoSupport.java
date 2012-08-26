@@ -4,16 +4,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.orientechnologies.orient.core.db.ODatabaseComplex;
 
-public class OrientDbDaoSupport {
+public abstract class OrientDbDaoSupport {
 
     protected ODatabaseComplex database;
 
     @Autowired
-    public void setDatabase(ODatabaseComplex database) {
+    public final void setDatabase(ODatabaseComplex database) {
         this.database = database;
     }
 
-    public ODatabaseComplex getDatabase() {
+    protected final ODatabaseComplex getDatabase() {
         return database;
     }
 }

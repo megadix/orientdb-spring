@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.*;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -14,18 +15,19 @@ import com.orientechnologies.orient.core.db.object.ODatabaseObject;
 import com.orientechnologies.orient.core.entity.OEntityManager;
 import com.orientechnologies.orient.core.tx.OTransaction;
 
-public class OrientDbTransactionManager extends AbstractPlatformTransactionManager implements
-        InitializingBean, DisposableBean {
+public class OrientDbTransactionManager extends AbstractPlatformTransactionManager implements InitializingBean,
+        DisposableBean {
 
     private static final long serialVersionUID = -1837116040878560582L;
 
-    private ODatabase database;
+    private ODatabaseComplex database;
     private String username;
     private String password;
     private List<String> entityClassesPackages = new ArrayList<String>();
     private boolean createIfNotExists;
 
-    public void setDatabase(ODatabase database) {
+    @Autowired
+    public void setDatabase(ODatabaseComplex database) {
         this.database = database;
     }
 
@@ -53,7 +55,9 @@ public class OrientDbTransactionManager extends AbstractPlatformTransactionManag
                 throw new IllegalStateException("Database does not exist");
             }
         } else {
-            database.open(username, password);
+            if (database.isClosed()) {
+                database.open(username, password);
+            }
         }
 
         if (!entityClassesPackages.isEmpty() && ODatabaseObject.class.isAssignableFrom(database.getClass())) {

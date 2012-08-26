@@ -9,10 +9,6 @@ h3. Configuration and usage
 For sample configuration and usage see orientdb-spring-samples:
 https://github.com/megadix/orientdb-spring-samples
 
-h3. Service & DAO
-
-SampleService is annotated as _@Transactional_, so Spring will wrap every method invocation in a OrientDB-powered transaction, and provides an instance of ODatabaseComplex to subclasses of OrientDbDaoSupport.
-
 h2. Disclaimer
 
 *WARNING*: this is my first attempt at the implementation of such a complex beast like a transaction manager, so *USE IT AT YOUR OWN RISK!*
