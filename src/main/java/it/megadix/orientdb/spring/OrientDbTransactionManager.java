@@ -7,27 +7,26 @@ import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.*;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
-import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.*;
 
-import com.orientechnologies.orient.core.db.*;
+import com.orientechnologies.orient.core.db.ODatabaseRecordThreadLocal;
 import com.orientechnologies.orient.core.db.object.ODatabaseObject;
+import com.orientechnologies.orient.core.db.record.ODatabaseRecord;
 import com.orientechnologies.orient.core.entity.OEntityManager;
-import com.orientechnologies.orient.core.tx.OTransaction;
 
 public class OrientDbTransactionManager extends AbstractPlatformTransactionManager implements InitializingBean,
         DisposableBean {
 
     private static final long serialVersionUID = -1837116040878560582L;
 
-    private ODatabaseComplex database;
+    private ODatabaseRecord database;
     private String username;
     private String password;
     private List<String> entityClassesPackages = new ArrayList<String>();
     private boolean createIfNotExists;
 
     @Autowired
-    public void setDatabase(ODatabaseComplex database) {
+    public void setDatabase(ODatabaseRecord database) {
         this.database = database;
     }
 
@@ -61,11 +60,7 @@ public class OrientDbTransactionManager extends AbstractPlatformTransactionManag
         }
 
         if (!entityClassesPackages.isEmpty() && ODatabaseObject.class.isAssignableFrom(database.getClass())) {
-            ODatabaseObject objectDb = (ODatabaseObject) database;
-            OEntityManager entMgr = objectDb.getEntityManager();
-            for (String entityPackage : entityClassesPackages) {
-                entMgr.registerEntityClasses(entityPackage);
-            }
+            throw new UnsupportedOperationException("object database support not implemented!");
         }
     }
 
@@ -83,20 +78,30 @@ public class OrientDbTransactionManager extends AbstractPlatformTransactionManag
 
     @Override
     protected Object doGetTransaction() throws TransactionException {
-        return ODatabaseRecordThreadLocal.INSTANCE.get().getTransaction();
+        TransactionHolder holder = (TransactionHolder) TransactionSynchronizationManager.getResource(database);
+
+        if (holder == null) {
+            // create and register new transaction
+            holder = new TransactionHolder(database);
+            ODatabaseRecordThreadLocal.INSTANCE.set(database);
+        }
+
+        holder.setTransaction(ODatabaseRecordThreadLocal.INSTANCE.get().getTransaction());
+
+        return holder;
     }
 
     @Override
-    protected void doBegin(Object transaction, TransactionDefinition definition) throws TransactionException {
-        OTransaction tx = (OTransaction) transaction;
-        tx.begin();
+    protected void doBegin(Object transactionObject, TransactionDefinition definition) throws TransactionException {
+        TransactionHolder holder = (TransactionHolder) transactionObject;
+        holder.getTransaction().begin();
     }
 
     @Override
     protected void doCommit(DefaultTransactionStatus status) throws TransactionException {
-        OTransaction tx = (OTransaction) status.getTransaction();
+        TransactionHolder holder = (TransactionHolder) status.getTransaction();
         try {
-            tx.commit();
+            holder.getTransaction().commit();
         } catch (Exception ex) {
             throw new TransactionSystemException("Could not rollback OrientDB transaction", ex);
         }
@@ -104,9 +109,9 @@ public class OrientDbTransactionManager extends AbstractPlatformTransactionManag
 
     @Override
     protected void doRollback(DefaultTransactionStatus status) throws TransactionException {
-        OTransaction tx = (OTransaction) status.getTransaction();
+        TransactionHolder holder = (TransactionHolder) status.getTransaction();
         try {
-            tx.rollback();
+            holder.getTransaction().rollback();
         } catch (Exception ex) {
             throw new TransactionSystemException("Could not rollback OrientDB transaction", ex);
         }

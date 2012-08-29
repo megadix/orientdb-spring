@@ -20,7 +20,7 @@ import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 public class OrientDbDaoSupportTest {
 
     static final String DB_PATH = "databases/OrientDbDaoSupportTest";
-    
+
     @Configuration
     static class ContextConfiguration {
         @Bean
@@ -42,11 +42,12 @@ public class OrientDbDaoSupportTest {
     DummyOrientDbDaoSupport dao;
 
     @Test
-    public void test_autowire() {
-        assertNotNull(dao);
-        assertNotNull(dao.getDatabase());
-        assertTrue(dao.getDatabase().exists());
+    public void test_getOrientDbTemplate() {
+        OrientDbTemplate tpl = dao.getOrientDbTemplate();
+        assertNotNull(tpl);
+        assertNotNull(tpl.getDatabase());
     }
+
 }
 
 class DummyOrientDbDaoSupport extends OrientDbDaoSupport {

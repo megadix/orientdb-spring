@@ -1,9 +1,8 @@
 package it.megadix.orientdb.spring;
 
-import static junit.framework.Assert.*;
+import static junit.framework.Assert.assertNull;
 
 import java.io.File;
-import java.util.List;
 import java.util.concurrent.*;
 
 import org.apache.commons.io.FileUtils;
@@ -18,11 +17,8 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.orientechnologies.orient.core.db.ODatabaseComplex;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
-import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
-import com.orientechnologies.orient.core.storage.OStorage.CLUSTER_TYPE;
+import com.orientechnologies.orient.core.db.record.ODatabaseRecord;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
@@ -33,10 +29,10 @@ public class TransactionalTest_1 {
     @Configuration
     static class ContextConfiguration {
 
-        ODatabaseComplex database;
+        ODatabaseRecord database;
 
         @Bean
-        ODatabaseComplex database() throws Exception {
+        ODatabaseRecord database() throws Exception {
             if (database == null) {
                 // delete database from previous runs (if any)
                 File dbDir = new File(DB_PATH);
@@ -58,67 +54,41 @@ public class TransactionalTest_1 {
         }
 
         @Bean
-        MyTransactionalService myTransactionalService() {
-            return new MyTransactionalService();
+        TransactionalTest_1_Service myTransactionalService() {
+            return new TransactionalTest_1_Service();
         }
     }
 
     /* ------------------------------------------------------- */
 
     @Autowired
-    MyTransactionalService service;
+    TransactionalTest_1_Service service;
 
     /* ------------------------------------------------------- */
+
+    @Autowired
+    PlatformTransactionManager transactionManager;
 
     @Test
     public void test_concurrent_write_read() throws Exception {
         final CyclicBarrier barrier = new CyclicBarrier(2);
 
-        Runnable runnable_A = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    assertEquals(0, service.countDocuments());
-                    // insert one document
-                    assertNotNull(service.insertDocument("Thread A"));
-                    assertEquals(1, service.countDocuments());
-                    // wait at barrier while thread B inserts another document
-                    barrier.await();
-                    // count must be == 1, because transactions must be isolated
-                    assertEquals(1, service.countDocuments());
-
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
-        };
-
-        Runnable runnable_B = new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    // wait at barrier while thread A inserts a document
-                    barrier.await();
-
-                    // count must be == 0, because transactions must be isolated
-                    assertEquals(0, service.countDocuments());
-
-                    // insert one document
-                    assertNotNull(service.insertDocument("Thread B"));
-
-                    // count must be == 1, because transactions must be isolated
-                    assertEquals(1, service.countDocuments());
-
-                } catch (Exception ex) {
-                    throw new RuntimeException(ex);
-                }
-            }
-        };
-        
         ExecutorService executorService = Executors.newFixedThreadPool(2);
-        
-        Future future_A =  executorService.submit(runnable_A);
-        Future future_B =  executorService.submit(runnable_B);
+
+        Future<?> future_A = executorService.submit(new Runnable() {
+            @Override
+            public void run() {
+                service.test_A(barrier, TransactionalTest_1.this);
+            }
+        });
+
+        Future<?> future_B = executorService.submit(new Runnable() {
+            @Override
+            public void run() {
+                service.test_B(barrier, TransactionalTest_1.this);
+            }
+        });
+
         assertNull(future_A.get());
         assertNull(future_B.get());
 
@@ -126,22 +96,4 @@ public class TransactionalTest_1 {
     }
 
     /* ------------------------------------------------------- */
-}
-
-@Transactional
-class MyTransactionalService extends OrientDbDaoSupport {
-
-    public long countDocuments() {
-        OSQLSynchQuery<ODocument> query = new OSQLSynchQuery<ODocument>("select count(*) from TransactionalTest_1");
-        List<ODocument> result = database.command(query).execute();
-        Number count = result.get(0).field("count");
-        return count.longValue();
-    }
-
-    public ODocument insertDocument(String name) {
-        ODocument doc = new ODocument("TransactionalTest_1");
-        doc.field("name", name);
-        doc.save();
-        return doc;
-    }
 }
