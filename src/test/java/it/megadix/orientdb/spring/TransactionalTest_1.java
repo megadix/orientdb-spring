@@ -9,20 +9,17 @@ import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.*;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.ODatabaseRecord;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
-@Transactional
 public class TransactionalTest_1 {
     static final String DB_PATH = "databases/TransactionalTest_1";
 
@@ -50,7 +47,13 @@ public class TransactionalTest_1 {
 
         @Bean
         PlatformTransactionManager transactionManager() throws Exception {
-            return new OrientDbTransactionManager();
+            OrientDbPoolDocumentTransactionManager manager = new OrientDbPoolDocumentTransactionManager();
+            manager.setDatabaseURL("local:" + DB_PATH);
+            manager.setUsername("admin");
+            manager.setPassword("admin");
+            manager.setMaxConnections(2);
+
+            return manager;
         }
 
         @Bean
@@ -96,4 +99,20 @@ public class TransactionalTest_1 {
     }
 
     /* ------------------------------------------------------- */
+    
+    public static void main(String[] args) {
+        AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext(ContextConfiguration.class);
+        ctx.scan(TransactionalTest_1.class.getPackage().getName());
+
+        TransactionalTest_1 test = new TransactionalTest_1();
+        test.service = ctx.getBean(TransactionalTest_1_Service.class);
+        
+        try {
+            test.test_concurrent_write_read();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        ctx.destroy();
+    }
 }

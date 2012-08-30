@@ -6,45 +6,79 @@ import static junit.framework.Assert.assertNotNull;
 import java.util.List;
 import java.util.concurrent.CyclicBarrier;
 
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.orientechnologies.orient.core.db.record.ODatabaseRecord;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.query.OSQLSynchQuery;
 
-@Transactional
+@Service
 public class TransactionalTest_1_Service extends OrientDbDaoSupport {
 
-    public void test_A(final CyclicBarrier barrier, TransactionalTest_1 test_1) {
-        try {
-            assertEquals(0, countDocuments());
-            // insert one document
-            assertNotNull(insertDocument("Thread A"));
-            assertEquals(1, countDocuments());
-            // wait at barrier while thread B inserts another document
-            barrier.await();
-            // count must be == 1, because transactions must be isolated
-            assertEquals(1, countDocuments());
+    PlatformTransactionManager transactionManager;
+    TransactionTemplate template;
 
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    @Autowired
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+        this.template = new TransactionTemplate(transactionManager);
+    }
+
+    public void test_A(final CyclicBarrier barrier, TransactionalTest_1 test_1) {
+
+        TransactionCallback<Object> tcb = new TransactionCallback<Object>() {
+            @Override
+            public Object doInTransaction(TransactionStatus status) {
+                try {
+                    assertEquals(0, countDocuments());
+                    // insert one document
+                    assertNotNull(insertDocument("Thread A"));
+                    assertEquals(1, countDocuments());
+                    // wait at barrier while thread B inserts another document
+                    barrier.await();
+                    // count must be == 1, because transactions must be isolated
+                    assertEquals(1, countDocuments());
+
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                return null;
+            }
+        };
+
+        template.execute(tcb);
     }
 
     public void test_B(final CyclicBarrier barrier, TransactionalTest_1 test_1) {
-        try {
-            // wait at barrier while thread A inserts a document
-            barrier.await();
-            // count must be == 0, because transactions must be isolated
-            assertEquals(0, countDocuments());
-            // insert one document
-            assertNotNull(insertDocument("Thread B"));
-            // count must be == 1, because transactions must be isolated
-            assertEquals(1, countDocuments());
 
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        TransactionCallback<Object> tcb = new TransactionCallback<Object>() {
+            @Override
+            public Object doInTransaction(TransactionStatus status) {
+                try {
+                    // wait at barrier while thread A inserts a document
+                    barrier.await();
+                    // count must be == 0, because transactions must be isolated
+                    assertEquals(0, countDocuments());
+                    // insert one document
+                    assertNotNull(insertDocument("Thread B"));
+                    // count must be == 1, because transactions must be isolated
+                    assertEquals(1, countDocuments());
+
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                return null;
+            }
+        };
+
+        template.execute(tcb);
     }
 
     private long countDocuments() {

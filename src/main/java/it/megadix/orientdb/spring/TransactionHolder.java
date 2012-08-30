@@ -8,7 +8,6 @@ import com.orientechnologies.orient.core.tx.OTransaction;
 
 public class TransactionHolder {
     private ODatabaseRecord database;
-    private OTransaction transaction;
 
     public TransactionHolder() {
         super();
@@ -25,13 +24,5 @@ public class TransactionHolder {
 
     public void setDatabase(ODatabaseRecord database) {
         this.database = database;
-    }
-
-    public OTransaction getTransaction() {
-        return transaction;
-    }
-
-    public void setTransaction(OTransaction transaction) {
-        this.transaction = transaction;
     }
 }
